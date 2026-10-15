@@ -26,7 +26,8 @@ namespace HushAlarm {
         }
     }
     static class LocalAuth {
-        static string FilePath { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"HushAlarm","auth.dat"); } }
+        internal static string TestStoragePath = null;
+        static string FilePath { get { return TestStoragePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"HushAlarm","auth.dat"); } }
         public static bool Exists { get { return File.Exists(FilePath); } }
         public static void Create(string pin) {
             byte[] salt=new byte[24]; using(var rng=RandomNumberGenerator.Create()) rng.GetBytes(salt);
@@ -55,6 +56,7 @@ namespace HushAlarm {
         TextBox pin=new TextBox(),confirm=new TextBox(); Label message=new Label(); bool setup;
         public LoginForm() {
             setup=!LocalAuth.Exists; Text="HUSH Alarm"; ClientSize=new Size(390,310); FormBorderStyle=FormBorderStyle.FixedDialog; MaximizeBox=false; MinimizeBox=false; StartPosition=FormStartPosition.CenterScreen; Font=new Font("Yu Gothic UI",11);
+            Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             var title=new Label {Text=setup ? "PINを作成" : "ログイン",Font=new Font(Font.FontFamily,22,FontStyle.Bold),AutoSize=true,Location=new Point(28,25)}; Controls.Add(title);
             Controls.Add(new Label {Text=setup ? "6〜12桁の数字" : "PIN",AutoSize=true,Location=new Point(30,83)});
             pin.SetBounds(30,112,330,32); pin.UseSystemPasswordChar=true; pin.MaxLength=12; Controls.Add(pin);
@@ -82,6 +84,7 @@ namespace HushAlarm {
         [DllImport("kernel32.dll")] static extern uint SetThreadExecutionState(uint state);
         public AlarmForm(bool demoMode) {
             demo=demoMode; Text="HUSH Alarm"; ClientSize=new Size(580,665); MinimumSize=new Size(570,695); StartPosition=FormStartPosition.CenterScreen; Font=new Font("Yu Gothic UI",11); BackColor=Color.FromArgb(246,248,247);
+            Icon=Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             var root=new TableLayoutPanel {Dock=DockStyle.Fill,ColumnCount=1,RowCount=12,Padding=new Padding(28,22,28,22)};
             float[] heights={58,26,44,24,46,58,34,52,40,80,56,46}; foreach(var h in heights) root.RowStyles.Add(new RowStyle(SizeType.Absolute,h)); Controls.Add(root);
             root.Controls.Add(new Label {Text="HUSH",Font=new Font(Font.FontFamily,28,FontStyle.Bold),ForeColor=accent,Dock=DockStyle.Fill},0,0);
@@ -101,7 +104,9 @@ namespace HushAlarm {
             start.Click+=delegate {Arm(null);}; stop.Click+=delegate {StopAlarm(false,"");}; snooze.Click+=delegate {if(alarm.State==AlarmState.Ringing) Arm(TimeSpan.FromMinutes(3));}; actions.Controls.Add(start,0,0); actions.Controls.Add(stop,1,0); actions.Controls.Add(snooze,2,0); root.Controls.Add(actions,0,10);
             state.Text="イヤホンを接続してください"; state.TextAlign=ContentAlignment.MiddleCenter; state.Dock=DockStyle.Fill; root.Controls.Add(state,0,11);
             outputs.SelectedIndexChanged+=delegate {if(alarm.State==AlarmState.Armed||alarm.State==AlarmState.Ringing) StopAlarm(true,"出力先が変更されました"); UpdateButtons();};
-            player.Failed+=delegate(string message) { if(!IsDisposed && IsHandleCreated) BeginInvoke((Action)delegate {StopAlarm(true,message);}); };
+            player.Failed+=delegate(string message) { try { if(!IsDisposed && IsHandleCreated) BeginInvoke((Action)delegate {StopAlarm(true,message);}); } catch(InvalidOperationException) {} };
+            sounds.DrawMode=DrawMode.OwnerDrawFixed; sounds.ItemHeight=24;
+            sounds.DrawItem+=delegate(object sender,DrawItemEventArgs e) {e.DrawBackground(); if(e.Index>=0) TextRenderer.DrawText(e.Graphics,sounds.Items[e.Index].ToString(),e.Font,e.Bounds,SystemColors.ControlText,TextFormatFlags.VerticalCenter|TextFormatFlags.Left);e.DrawFocusRectangle();};
             FormClosing+=OnClosing; if(!demo) SystemEvents.PowerModeChanged+=PowerChanged;
             tick.Interval=200; tick.Tick+=OnTick; RefreshDevices(); UpdateMode(); UpdateButtons(); if(!demo) tick.Start();
         }

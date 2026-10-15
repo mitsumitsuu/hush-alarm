@@ -82,7 +82,7 @@ namespace HushAlarm {
             } catch (Exception) {
                 if (!signal.WaitOne(0) && Failed != null) Failed("イヤホンへの再生が停止しました");
             } finally {
-                if (client!=null) client.Stop();
+                if (client!=null) { try { client.Stop(); } catch (COMException) {} }
                 if (format!=IntPtr.Zero) Marshal.FreeCoTaskMem(format);
                 AudioDevices.Release(render); AudioDevices.Release(client); AudioDevices.Release(device); AudioDevices.Release(e);
                 signal.Dispose();
@@ -106,7 +106,7 @@ namespace HushAlarm {
         [PreserveSig] int RegisterEndpointNotificationCallback(IntPtr callback);
         [PreserveSig] int UnregisterEndpointNotificationCallback(IntPtr callback);
     }
-    [ComImport,Guid("0BD7A1BE-7A1A-44DB-8397-C0A32B8B5F8A"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)] interface IMMDeviceCollection {
+    [ComImport,Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)] interface IMMDeviceCollection {
         [PreserveSig] int GetCount(out uint count); [PreserveSig] int Item(uint index,out IMMDevice device);
     }
     [ComImport,Guid("D666063F-1587-4E43-81F1-B948E807363F"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)] interface IMMDevice {

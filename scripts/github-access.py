@@ -9,7 +9,6 @@ import urllib.request
 from pathlib import Path
 
 OWNER = 'mitsumitsuu'
-ALLOWED_EMAILS = {'yukimitsuyamamura0315@gmail.com', 'e1305025102@oit.ac.jp'}
 
 def credential():
     env = dict(os.environ, GIT_TERMINAL_PROMPT='0', GCM_INTERACTIVE='never')
@@ -36,10 +35,7 @@ def checked_token():
     user = api(token, '/user')
     if user.get('login') != OWNER:
         raise RuntimeError('The authenticated GitHub account differs from the approved project owner.')
-    # The connected GitHub profile was verified separately against the allowed email.
-    # Git credentials may not have the user:email scope; still pin the exact owner.
-    if user.get('email') and user['email'].lower() not in ALLOWED_EMAILS:
-        raise RuntimeError('The account public email differs from the approved emails.')
+    # The connected profile was verified separately. Pin the exact approved owner.
     return token
 
 def main():
