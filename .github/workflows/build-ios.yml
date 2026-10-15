@@ -1,0 +1,42 @@
+name: Build iPhone app
+on:
+  push:
+    branches: [codex/hush-alarm]
+    paths: [ios/**, .github/workflows/build-ios.yml, docs/release.md]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test scheduling and route policy
+        run: swift test --package-path ios/Core
+      - name: Generate Xcode project
+        run: |
+          if ! command -v xcodegen >/dev/null; then brew install xcodegen; fi
+          cd ios
+          xcodegen generate
+      - name: Build unsigned iPhone app
+        run: |
+          xcodebuild -project ios/HushAlarm.xcodeproj -scheme HushAlarm -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" build > build-log.txt 2>&1 || { tail -n 140 build-log.txt; exit 1; }
+          mkdir -p build/ipa/Payload
+          cp -R build/ios/Build/Products/Release-iphoneos/HushAlarm.app build/ipa/Payload/
+          cd build/ipa
+          zip -qr ../HUSH-Alarm-iPhone-unsigned.ipa Payload
+      - name: Verify package
+        run: |
+          test -f build/ipa/Payload/HushAlarm.app/HushAlarm
+          plutil -lint build/ipa/Payload/HushAlarm.app/Info.plist
+          file build/ipa/Payload/HushAlarm.app/HushAlarm
+      - name: Publish installable source package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v0.1.0-build.${GITHUB_RUN_NUMBER}" \
+            --target "$GITHUB_SHA" --title "HUSH Alarm 0.1.0 (build ${GITHUB_RUN_NUMBER})" \
+            --prerelease --notes-file docs/release.md build/HUSH-Alarm-iPhone-unsigned.ipa
